@@ -66,6 +66,8 @@ class UrbanRoutesPage:
 
     order_details_popup = (By.CLASS_NAME, 'order-body')
 
+    order_header_title = (By.CSS_SELECTOR, '.order-header-title')
+
     def __init__(self, driver):
         self.driver = driver
 
@@ -84,6 +86,9 @@ class UrbanRoutesPage:
 
     def click_comfort_tariff(self):
         self.driver.find_element(*self.comfort_tariff).click()
+
+    def get_comfort_tariff_title(self):
+        return self.driver.find_element(*self.comfort_tariff).get_property('title')
 
     def get_from(self):
         return self.driver.find_element(*self.from_field).get_property('value')
@@ -201,6 +206,7 @@ class UrbanRoutesPage:
 
     def wait_for_order_details(self):
         WebDriverWait(self.driver, 5).until(expected_conditions.visibility_of_element_located(*self.order_details_popup))
+        return self.driver.find_element(*self.order_header_title).text
 
 class TestUrbanRoutes:
 
@@ -215,66 +221,87 @@ class TestUrbanRoutes:
         cls.driver = webdriver.Chrome(desired_capabilities=capabilities)
 
     def test_set_route(self):
-        #Configuraciones
         self.driver.get(data.urban_routes_url)
         routes_page = UrbanRoutesPage(self.driver)
 
-        #Variables
         address_from = data.address_from
         address_to = data.address_to
+
+        routes_page.set_route(address_from, address_to)
+
+        assert routes_page.get_from() == address_from, f'Expected to find "East 2nd Street, 601", but found {address_from}'
+        assert routes_page.get_to() == address_to, f'Expected to find "1300 1st Street", but found {address_to}'
+
+    def test_select_plan(self):
+        self.driver.get(data.urban_routes_url)
+        routes_page = UrbanRoutesPage(self.driver)
+
+        routes_page.click_comfort_tariff()
+
+        assert routes_page.get_comfort_tariff_title() == 'Comfort' , f'Expected to find "Comfort" tariff selected, but found "{routes_page.getcomfort_tariff_title()}" instead'
+
+    def test_fill_phone_number(self):
+        self.driver.get(data.urban_routes_url)
+        routes_page = UrbanRoutesPage(self.driver)
 
         phone_number = data.phone_number
         phone_code = retrieve_phone_code(driver)
 
+        routes_page.phone_number_and_code_full_function(phone_number, phone_code)
+
+        assert routes_page.get_phone_number() == phone_number, f'Expected to find "+1 123 123 12 12", but found {phone_number}'
+        assert routes_page.get_phone_code() == phone_code, f'Expected to find "phone code", but found {phone_code}'
+
+    def test_fill_card(self):
+        self.driver.get(data.urban_routes_url)
+        routes_page = UrbanRoutesPage(self.driver)
+
         card_number = data.card_number
         card_code_number = data.card_code
 
-        comment_for_driver = data.message_for_driver
-
-        #Rellenar Formulario Direcciones
-        routes_page.set_route(address_from, address_to)
-
-        #Formulario Telefono y codigo
-        routes_page.phone_number_and_code_full_function(phone_number, phone_code)
-
-        #Insertar Tarjeta
         routes_page.add_payment_method_full(card_number, card_code_number)
 
-        #Escribir Mensaje Controlador
+        assert routes_page.get_card_number() == card_number, f'Expected to find "1234 5678 9100", but found {card_number}'
+        assert routes_page.get_card_code_number() == card_code_number, f'Expected to find "111", but found {card_code_number}'
+
+    def test_comment_for_driver(self):
+        self.driver.get(data.urban_routes_url)
+        routes_page = UrbanRoutesPage(self.driver)
+
+        comment_for_driver = data.message_for_driver
+
         routes_page.fill_driver_message_field(comment_for_driver)
 
-        #Seleccionar Manta y Pañuelos
+        assert routes_page.get_driver_message() == comment_for_driver , f'Expected to find "driver message", but found {comment_for_driver}'
+
+    def test_order_blanket_and_handkerchiefs(self):
+        self.driver.get(data.urban_routes_url)
+        routes_page = UrbanRoutesPage(self.driver)
+
         routes_page.click_blanket_slider()
 
-        #Ordenar 2 Helados
+        assert routes_page.is_blanket_slider_enabled() == True , f'Expected to find blanket_slider selected, but found {routes_page.is_blanket_slider_enabled()}'
+
+    def test_order_2_ice_creams(self):
+        self.driver.get(data.urban_routes_url)
+        routes_page = UrbanRoutesPage(self.driver)
+
         routes_page.render_ice_cream_button()
         for i in range(2):
             routes_page.click_order_ice_cream()
 
-        #Pedir Taxi Finalizado
-        routes_page.click_finish_order_button()
-
-        #Esperar a que los detalles del taxi carguen
-        routes_page.wait_for_order_details()
-
-        #Asserts
-        assert routes_page.get_from() == address_from, f'Expected to find "East 2nd Street, 601", but found {address_from}'
-        assert routes_page.get_to() == address_to, f'Expected to find "1300 1st Street", but found {address_to}'
-
-        assert routes_page.get_phone_number() == phone_number , f'Expected to find "+1 123 123 12 12", but found {phone_number}'
-        assert routes_page.get_phone_code() == phone_code , f'Expected to find "phone code", but found {phone_code}'
-
-        assert routes_page.get_card_number() == card_number , f'Expected to find "1234 5678 9100", but found {card_number}'
-        assert routes_page.get_card_code_number() == card_code_number , f'Expected to find "111", but found {card_code_number}'
-
-        assert routes_page.get_driver_message() == comment_for_driver , f'Expected to find "driver message", but found {comment_for_driver}'
-
-        assert routes_page.is_blanket_slider_enabled() == True , f'Expected to find blanket_slider selected, but found {routes_page.is_blanket_slider_enabled()}'
-
         assert routes_page.get_ice_cream_counter() == 2 , f'Expected to find "2" in counter, but found {routes_page.get_ice_cream_counter}'
+
+    def test_driver_info_appears(self):
+        self.driver.get(data.urban_routes_url)
+        routes_page = UrbanRoutesPage(self.driver)
+
+        routes_page.click_finish_order_button()
+        order_title = routes_page.wait_for_order_details()
+
+        assert "El conductor llegará en" in order_title , f'Expected "El conductor llegara en x min", but found "{order_title}'
 
     @classmethod
     def teardown_class(cls):
         cls.driver.quit()
         print("Test Finished!")
-
